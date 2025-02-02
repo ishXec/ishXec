@@ -1,0 +1,86 @@
+The **"Unmatched " or ' "** error in tcsh` usually happens when variable expansion fails or when the script encounters an empty glob pattern that doesn't match any files.
+
+Fix for the "Unmatched" Error
+
+Issue:
+
+In tcsh, if no .csv files exist, the glob pattern ($csv_dir/*.csv) remains as a literal string, which can cause an "Unmatched" error when used in conditions.
+
+Solution:
+
+1. Check if any .csv files exist before processing the glob.
+
+
+2. Use if ( -e "$csv_dir/*.csv" ) before assigning csv_files to ensure the pattern matches actual files.
+
+
+3. Use (${=csv_files}) expansion to prevent tcsh from treating it as a single string.
+
+
+
+
+---
+
+Final Optimized & Error-Free Script
+
+#!/bin/tcsh
+
+# Directory containing CSV files
+set csv_dir = "./csv_files"
+
+# Output XLS file
+set output_file = "output.xls"
+
+# Create the XLS file header
+cat > "$output_file" << EOF
+<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+          xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+EOF
+
+# Check if the directory exists
+if (! -d "$csv_dir") then
+    echo "Error: Directory $csv_dir does not exist."
+    exit 1
+endif
+
+# Check if any CSV files exist before setting the glob pattern
+if (! -e "$csv_dir/*.csv") then
+    echo "Warning: No CSV files found in $csv_dir."
+    goto end_script
+endif
+
+# Get list of CSV files safely
+set csv_files = ($csv_dir/*.csv)
+
+# Process each CSV file
+foreach csv_file (${=csv_files})
+    # Ensure the file exists (extra safety check)
+    if (! -e "$csv_file") then
+        continue
+    endif
+
+    # Extract the base filename and sanitize it for XML worksheet naming
+    set worksheet_name = `basename "$csv_file" .csv | tr ' ' '_' | tr -cd '[:alnum:]_'`
+
+    echo "Processing: $csv_file -> Worksheet: $worksheet_name"
+
+    cat >> "$output_file" << EOF
+  <Worksheet ss:Name="$worksheet_name">
+    <Table>
+EOF
+
+    # Read CSV and convert to XML, handling special characters
+    awk -F, '
+    BEGIN { 
+        OFS = ",";
+    }
+    {
+        print "      <Row>"
+        for (i = 1; i <= NF; i++) {
+            gsub(/&/, "\\&amp;", $i);  # Escape &
+            gsub(/</, "\\&lt;", $i);   # Escape <
+            gsub(/>/, "\\&gt;", $i);   # Escape >
+
+            # Preserve leading zeros by forcing string
+
