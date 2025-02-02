@@ -1,0 +1,160 @@
+Here's the optimized and error-resilient version of your script with:
+
+Safer file listing (no need for ls, avoiding potential issues).
+
+Better error handling for missing files and directories.
+
+Performance improvements by reducing unnecessary commands.
+
+More readable and maintainable structure.
+
+
+
+---
+
+Updated Script (convert_csv_to_xls.tcsh)
+
+#!/bin/tcsh
+
+# Directory containing CSV files
+set csv_dir = "./csv_files"
+
+# Output XLS file
+set output_file = "output.xls"
+
+# Create the XLS file header
+cat > "$output_file" << EOF
+<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+          xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+EOF
+
+# Check if the directory exists
+if (! -d "$csv_dir") then
+    echo "Error: Directory $csv_dir does not exist."
+    exit 1
+endif
+
+# Get list of CSV files safely
+set csv_files = ($csv_dir/*.csv)
+
+# Check if there are no CSV files
+if ($#csv_files == 1 && "$csv_files[1]" == "$csv_dir/*.csv") then
+    echo "Warning: No CSV files found in $csv_dir."
+endif
+
+# Process each CSV file
+foreach csv_file ($csv_files)
+    # Ensure the file exists before processing (handles unmatched glob pattern)
+    if (! -e "$csv_file") then
+        continue
+    endif
+
+    # Extract the base filename and sanitize it for XML worksheet naming
+    set worksheet_name = `basename "$csv_file" .csv | tr ' ' '_' | tr -cd '[:alnum:]_'`
+
+    echo "Processing: $csv_file -> Worksheet: $worksheet_name"
+
+    cat >> "$output_file" << EOF
+  <Worksheet ss:Name="$worksheet_name">
+    <Table>
+EOF
+
+    # Read CSV and convert to XML, handling special characters
+    awk -F, '
+    BEGIN { 
+        OFS = ",";
+    }
+    {
+        print "      <Row>"
+        for (i = 1; i <= NF; i++) {
+            gsub(/&/, "\\&amp;", $i);  # Escape &
+            gsub(/</, "\\&lt;", $i);   # Escape <
+            gsub(/>/, "\\&gt;", $i);   # Escape >
+
+            # Preserve leading zeros by forcing string type
+            print "        <Cell><Data ss:Type=\"String\">" $i "</Data></Cell>"
+        }
+        print "      </Row>"
+    }' "$csv_file" >> "$output_file"
+
+    cat >> "$output_file" << EOF
+    </Table>
+  </Worksheet>
+EOF
+
+end
+
+# Close the XML workbook
+cat >> "$output_file" << EOF
+</Workbook>
+EOF
+
+echo "Conversion complete. Output file: $output_file"
+
+
+---
+
+Key Optimizations & Fixes:
+
+1. Eliminated ls Usage
+
+Now uses native tcsh globbing:
+
+set csv_files = ($csv_dir/*.csv)
+
+Avoids errors from ls: No such file or directory.
+
+
+
+2. Handles No-Match Cases Gracefully
+
+Checks if glob expansion failed:
+
+if ($#csv_files == 1 && "$csv_files[1]" == "$csv_dir/*.csv") then
+
+Prevents error when no files exist.
+
+
+
+3. Prevents Processing Non-Existent Files
+
+Ensures only existing files are processed:
+
+if (! -e "$csv_file") then
+    continue
+endif
+
+Prevents unmatched glob patterns from causing errors.
+
+
+
+4. More Readable & Maintainable Code
+
+Improved indentation and structuring.
+
+Clearer comments for each step.
+
+
+
+
+
+---
+
+Why This Is Better:
+
+✔ More Efficient (avoids unnecessary commands).
+✔ Safer Execution (no ls, prevents globbing issues).
+✔ Handles Errors Gracefully (won’t crash on missing files).
+✔ Easier to Maintain & Extend (cleaner structure).
+
+
+---
+
+How to Run:
+
+chmod +x convert_csv_to_xls.tcsh
+./convert_csv_to_xls.tcsh
+
+Would you like any additional enhancements, such as handling different delimiters or specifying a custom output filename?
+
