@@ -1,0 +1,37 @@
+#!/bin/tcsh
+
+# Directory containing CSV files
+set csv_dir = "./csv_files"
+
+# Output XLS file
+set output_file = "output.xls"
+
+# Create the XLS file header
+echo '<?xml version="1.0"?>' > "$output_file"
+echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"' >> "$output_file"
+echo '          xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' >> "$output_file"
+
+# Process each CSV file
+foreach csv_file ("$csv_dir"/*.csv)
+    # Add a worksheet for each CSV file
+    set worksheet_name = `basename "$csv_file" .csv`
+    echo "  <Worksheet ss:Name=\"$worksheet_name\">" >> "$output_file"
+    echo "    <Table>" >> "$output_file"
+
+    # Read the CSV file and convert it to XML
+    awk -F, '{
+        print "      <Row>"
+        for (i = 1; i <= NF; i++) {
+            print "        <Cell><Data ss:Type=\"String\">" $i "</Data></Cell>"
+        }
+        print "      </Row>"
+    }' "$csv_file" >> "$output_file"
+
+    echo "    </Table>" >> "$output_file"
+    echo "  </Worksheet>" >> "$output_file"
+end
+
+# Close the XLS file
+echo "</Workbook>" >> "$output_file"
+
+echo "Conversion complete. Output file: $output_file"
